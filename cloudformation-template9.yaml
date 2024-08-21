@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  LambdaExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaRole
+
+  BudgetNotificationTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      TopicName: "BudgetNotificationTopic"
+
+  BudgetSubscriptionEmail1:
+    Type: "AWS::SNS::Subscription"
+    Properties:
+      TopicArn: !Ref BudgetNotificationTopic
+      Protocol: "email"
+      Endpoint: "mrokonkwojnr@gmail.com"
+
+  BudgetSubscriptionEmail2:
+    Type: "AWS::SNS::Subscription"
+    Properties:
+      TopicArn: !Ref BudgetNotificationTopic
+      Protocol: "email"
+      Endpoint: "mrokonkwo2@gmail.com"
+
+  DailyBudgetReportFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "DailyBudgetReportFunction"
+      Handler: "index.lambda_handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  "statusCode": 200,
+                  "body": json.dumps("Daily budget report generated.")
+              }
+      Runtime: "python3.8"
+
+  DailyEventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      ScheduleExpression: "cron(0 0 * * ? *)"
+      Targets:
+        - Arn: !GetAtt DailyBudgetReportFunction.Arn
+          Id: "TargetFunction"
+
+  DailyEventRulePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !Ref DailyBudgetReportFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt DailyEventRule.Arn
